@@ -32,44 +32,67 @@ app.get('/', (req, res) => {
 })
 
 // MongoDB Connection
-mongoose.connect(process.env.MONGODB_URI)
-  .then(() => console.log('MongoDB Connected'))
-  .catch(err => console.error('MongoDB Error:', err))
+mongoose.connect(process.env.MONGODB_URI, {
+  useNewUrlParser: true,
+  useUnifiedTopology: true
+}).then(() => {
+  console.log('Connected to MongoDB')
+}).catch((err) => {
+  console.error('MongoDB connection error:', err)
+})
 
 // Schema
 const userDataSchema = new mongoose.Schema({
-  practice: {
-    name: String,
-    tagline: String,
-    description: String
-  },
+  practice: { name: String, tagline: String, description: String },
   contact: {
     phone: String,
     whatsapp: String,
     email: String,
-    address: {
-      street: String,
-      city: String,
-      state: String,
-      zip: String
-    }
+    address: { street: String, city: String, state: String, zip: String }
   },
-  hours: {
-    weekdays: String,
-    saturday: String,
-    sunday: String
-  },
+  hours: { weekdays: String, saturday: String, sunday: String },
   stats: {
     yearsExperience: String,
     patientsServed: String,
     successRate: String,
     doctorsCount: String
   },
-  services: [mongoose.Schema.Types.Mixed],
-  blogPosts: [mongoose.Schema.Types.Mixed],
+  services: [{
+    id: String,
+    title: String,
+    description: String,
+    icon: String,
+    price: String,
+    duration: String,
+    features: [String]
+  }],
+  blogPosts: [{
+    id: Number,
+    title: String,
+    slug: String,
+    excerpt: String,
+    content: String,
+    publishDate: String,
+    author: { name: String, id: String },
+    category: String,
+    tags: [String],
+    readTime: String,
+    featured: Boolean
+  }],
   gallery: {
-    facilityImages: [mongoose.Schema.Types.Mixed],
-    beforeAfterCases: [mongoose.Schema.Types.Mixed]
+    facilityImages: [{
+      url: String,
+      caption: String,
+      description: String
+    }],
+    beforeAfterCases: [{
+      title: String,
+      treatment: String,
+      duration: String,
+      description: String,
+      beforeImage: String,
+      afterImage: String
+    }]
   },
   ui: mongoose.Schema.Types.Mixed,
   seo: {
@@ -82,12 +105,12 @@ const userDataSchema = new mongoose.Schema({
 
 const UserData = mongoose.model('UserData', userDataSchema)
 
-// Initialize default data
+// Initialize with default data
 const initializeData = async () => {
   try {
     const count = await UserData.countDocuments()
     if (count === 0) {
-      const defaultData = new UserData({
+      await UserData.create({
         practice: {
           name: "Elite Medical Center",
           tagline: "Your Health, Our Priority",
@@ -96,41 +119,13 @@ const initializeData = async () => {
         contact: {
           phone: "+1 (555) 123-4567",
           email: "info@elitemedicalcenter.com",
-          address: {
-            street: "123 Healthcare Blvd",
-            city: "Austin",
-            state: "TX",
-            zip: "78701"
-          }
+          address: { street: "123 Healthcare Blvd", city: "Austin", state: "TX", zip: "78701" }
         },
-        stats: {
-          yearsExperience: "15",
-          patientsServed: "5,000",
-          successRate: "98",
-          doctorsCount: "8"
-        },
-        gallery: { facilityImages: [], beforeAfterCases: [] },
-        ui: {
-          homepage: {
-            primaryButtonText: "Get Started",
-            primaryButtonLink: "/contact",
-            secondaryButtonText: "Learn More",
-            secondaryButtonLink: "/services"
-          },
-          services: {
-            consultationButtonText: "Schedule Consultation",
-            consultationAction: "phone"
-          },
-          blog: { readMoreText: "Read More", linkTarget: "_self" },
-          navigation: {
-            home: { text: "Home", link: "/" },
-            services: { text: "Services", link: "/services" },
-            blog: { text: "Blog", link: "/blog" },
-            contact: { text: "Contact", link: "/contact" }
-          }
-        }
+        stats: { yearsExperience: "15", patientsServed: "5,000", successRate: "98", doctorsCount: "8" },
+        services: [],
+        blogPosts: [],
+        gallery: { facilityImages: [], beforeAfterCases: [] }
       })
-      await defaultData.save()
       console.log('Default data initialized')
     }
   } catch (error) {
@@ -139,10 +134,6 @@ const initializeData = async () => {
 }
 
 // Routes
-app.get('/health', (req, res) => {
-  res.json({ status: 'OK', timestamp: new Date() })
-})
-
 app.get('/api/user-data', async (req, res) => {
   try {
     const data = await UserData.findOne()
@@ -155,17 +146,14 @@ app.get('/api/user-data', async (req, res) => {
 app.post('/api/admin/login', (req, res) => {
   const { username, password } = req.body
   if (username === 'admin' && password === 'password123') {
-    const token = Buffer.from(`${username}:${Date.now()}`).toString('base64')
-    res.json({ success: true, token })
+    res.json({ success: true, token: Buffer.from(`${username}:${Date.now()}`).toString('base64') })
   } else {
     res.status(401).json({ success: false, message: 'Invalid credentials' })
   }
 })
 
 app.get('/api/admin/data', async (req, res) => {
-  if (!req.headers.authorization) {
-    return res.status(401).json({ message: 'Unauthorized' })
-  }
+  if (!req.headers.authorization) return res.status(401).json({ message: 'Unauthorized' })
   try {
     const data = await UserData.findOne()
     res.json(data || {})
@@ -175,16 +163,18 @@ app.get('/api/admin/data', async (req, res) => {
 })
 
 app.post('/api/admin/data', async (req, res) => {
-  if (!req.headers.authorization) {
-    return res.status(401).json({ message: 'Unauthorized' })
-  }
+  if (!req.headers.authorization) return res.status(401).json({ message: 'Unauthorized' })
   try {
-    const updatedData = { ...req.body, lastModified: new Date() }
-    await UserData.findOneAndUpdate({}, updatedData, { upsert: true })
-    res.json({ success: true, message: 'Data saved' })
+    req.body.lastModified = new Date()
+    const data = await UserData.findOneAndUpdate({}, req.body, { upsert: true, new: true })
+    res.json({ success: true, timestamp: data.lastModified })
   } catch (error) {
     res.status(500).json({ success: false, error: error.message })
   }
+})
+
+app.get('/health', (req, res) => {
+  res.json({ status: 'OK', timestamp: new Date() })
 })
 
 app.listen(PORT, async () => {
