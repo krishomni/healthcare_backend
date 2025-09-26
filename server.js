@@ -2,32 +2,32 @@ const express = require('express')
 const mongoose = require('mongoose')
 const cors = require('cors')
 require('dotenv').config()
-console.log("DEBUG MONGO_URI:", process.env.MONGO_URI); 
+
 const app = express()
-const PORT = process.env.PORT || 5001
+const PORT = process.env.PORT || 5000
 
 // Middleware
 app.use(cors({
   origin: [
     'http://localhost:3000',
-    'https://healthcare-frontend-dun.vercel.app/' 
+    'https://healthcare-frontend-dun.vercel.app', 
+    process.env.FRONTEND_URL
   ],
   credentials: true
 }))
 app.use(express.json({ limit: '10mb' }))
 
 // MongoDB Connection
-mongoose.connect(process.env.MONGO_URI, {
-  useNewUrlParser: true,
-  useUnifiedTopology: true
-})
+mongoose.connect(process.env.MONGODB_URI)
+  .then(() => console.log('MongoDB Connected'))
+  .catch(err => console.error('MongoDB Error:', err))
 
-// User Data Schema
+// Schema
 const userDataSchema = new mongoose.Schema({
   practice: {
-    name: { type: String, default: 'Your Practice' },
-    tagline: { type: String, default: 'Your Tagline' },
-    description: { type: String, default: 'Your Description' }
+    name: String,
+    tagline: String,
+    description: String
   },
   contact: {
     phone: String,
@@ -46,100 +46,19 @@ const userDataSchema = new mongoose.Schema({
     sunday: String
   },
   stats: {
-    yearsExperience: { type: String, default: '0' },
-    patientsServed: { type: String, default: '0' },
-    successRate: { type: String, default: '0' },
-    doctorsCount: { type: String, default: '0' }
+    yearsExperience: String,
+    patientsServed: String,
+    successRate: String,
+    doctorsCount: String
   },
-  services: [{
-    id: String,
-    title: String,
-    description: String,
-    icon: String,
-    price: String,
-    duration: String,
-    features: [String]
-  }],
-  team: [{
-    id: String,
-    name: String,
-    title: String,
-    specialty: String,
-    credentials: [String],
-    bio: String,
-    specialties: [String],
-    languages: [String]
-  }],
-  blogPosts: [{
-    id: Number,
-    title: String,
-    slug: String,
-    excerpt: String,
-    content: String,
-    publishDate: String,
-    author: {
-      name: String,
-      id: String
-    },
-    category: String,
-    tags: [String],
-    readTime: String,
-    featured: Boolean
-  }],
+  services: [mongoose.Schema.Types.Mixed],
+  team: [mongoose.Schema.Types.Mixed],
+  blogPosts: [mongoose.Schema.Types.Mixed],
   gallery: {
-    facilityImages: [{
-      url: String,
-      caption: String,
-      description: String
-    }],
-    beforeAfterCases: [{
-      title: String,
-      treatment: String,
-      duration: String,
-      description: String,
-      beforeImage: String,
-      afterImage: String
-    }]
+    facilityImages: [mongoose.Schema.Types.Mixed],
+    beforeAfterCases: [mongoose.Schema.Types.Mixed]
   },
-  ui: {
-    homepage: {
-      primaryButtonText: { type: String, default: 'Get Started' },
-      primaryButtonLink: { type: String, default: '/contact' },
-      secondaryButtonText: { type: String, default: 'Learn More' },
-      secondaryButtonLink: { type: String, default: '/services' }
-    },
-    services: {
-      consultationButtonText: { type: String, default: 'Schedule Consultation' },
-      consultationAction: { type: String, default: 'phone' },
-      customLink: String
-    },
-    blog: {
-      readMoreText: { type: String, default: 'Read More' },
-      linkTarget: { type: String, default: '_self' }
-    },
-    gallery: {
-      viewAllText: { type: String, default: 'View Full Gallery' },
-      viewAllLink: { type: String, default: '/gallery' }
-    },
-    navigation: {
-      home: {
-        text: { type: String, default: 'Home' },
-        link: { type: String, default: '/' }
-      },
-      services: {
-        text: { type: String, default: 'Services' },
-        link: { type: String, default: '/services' }
-      },
-      blog: {
-        text: { type: String, default: 'Blog' },
-        link: { type: String, default: '/blog' }
-      },
-      contact: {
-        text: { type: String, default: 'Contact' },
-        link: { type: String, default: '/contact' }
-      }
-    }
-  },
+  ui: mongoose.Schema.Types.Mixed,
   seo: {
     siteTitle: String,
     metaDescription: String,
@@ -153,29 +72,23 @@ const UserData = mongoose.model('UserData', userDataSchema)
 // Initialize default data
 const initializeData = async () => {
   try {
-    const existingData = await UserData.findOne()
-    if (!existingData) {
+    const count = await UserData.countDocuments()
+    if (count === 0) {
       const defaultData = new UserData({
         practice: {
           name: "Elite Medical Center",
           tagline: "Your Health, Our Priority",
-          description: "Providing exceptional healthcare services with state-of-the-art technology."
+          description: "Providing exceptional healthcare services."
         },
         contact: {
           phone: "+1 (555) 123-4567",
-          whatsapp: "+1 (555) 123-4567",
           email: "info@elitemedicalcenter.com",
           address: {
-            street: "123 Healthcare Blvd, Suite 200",
+            street: "123 Healthcare Blvd",
             city: "Austin",
             state: "TX",
             zip: "78701"
           }
-        },
-        hours: {
-          weekdays: "Mon-Fri: 8:00 AM - 6:00 PM",
-          saturday: "Sat: 9:00 AM - 2:00 PM",
-          sunday: "Sun: Closed"
         },
         stats: {
           yearsExperience: "15",
@@ -183,75 +96,52 @@ const initializeData = async () => {
           successRate: "98",
           doctorsCount: "8"
         },
-        services: [{
-          id: "primary-care",
-          title: "Primary Care",
-          description: "Comprehensive healthcare services for all ages including annual checkups, preventive care, and chronic disease management.",
-          icon: "user-md",
-          price: "$150",
-          duration: "45 minutes",
-          features: [
-            "Comprehensive health examination",
-            "Preventive care screening", 
-            "Chronic disease management",
-            "Health education and counseling"
-          ]
-        }],
-        blogPosts: [{
-          id: 1,
-          title: "10 Essential Health Tips for 2024",
-          slug: "health-tips-2024",
-          excerpt: "Discover the latest evidence-based strategies to maintain optimal health and prevent common illnesses.",
-          content: "<h2>Introduction</h2><p>Maintaining good health requires a comprehensive approach...</p>",
-          publishDate: "2024-03-15",
-          author: { name: "Dr. Sarah Johnson" },
-          category: "Health Tips",
-          tags: ["health", "prevention", "wellness"],
-          readTime: "5 min read",
-          featured: true
-        }],
-        gallery: {
-          facilityImages: [{
-            url: "https://images.unsplash.com/photo-1629909613654-28e377c37b09?w=800",
-            caption: "Modern Reception Area",
-            description: "Our welcoming reception area designed for patient comfort"
-          }],
-          beforeAfterCases: [{
-            title: "Complete Smile Makeover",
-            treatment: "Dental Veneers & Whitening",
-            duration: "6 weeks",
-            description: "Patient received comprehensive cosmetic dental treatment including porcelain veneers.",
-            beforeImage: "https://images.unsplash.com/photo-1606811841689-23dfddce3e95?w=400",
-            afterImage: "https://images.unsplash.com/photo-1609840114035-3c981b782dfe?w=400"
-          }]
-        },
-        seo: {
-          siteTitle: "Elite Medical Center - Comprehensive Healthcare Services",
-          metaDescription: "Leading medical center providing comprehensive healthcare services with experienced doctors.",
-          keywords: "medical center, healthcare, doctors"
+        services: [],
+        gallery: { facilityImages: [], beforeAfterCases: [] },
+        ui: {
+          homepage: {
+            primaryButtonText: "Get Started",
+            primaryButtonLink: "/contact",
+            secondaryButtonText: "Learn More",
+            secondaryButtonLink: "/services"
+          },
+          services: {
+            consultationButtonText: "Schedule Consultation",
+            consultationAction: "phone"
+          },
+          blog: { readMoreText: "Read More", linkTarget: "_self" },
+          navigation: {
+            home: { text: "Home", link: "/" },
+            services: { text: "Services", link: "/services" },
+            blog: { text: "Blog", link: "/blog" },
+            contact: { text: "Contact", link: "/contact" }
+          }
         }
       })
       await defaultData.save()
       console.log('Default data initialized')
     }
   } catch (error) {
-    console.error('Error initializing data:', error)
+    console.error('Init error:', error)
   }
 }
 
 // Routes
+app.get('/health', (req, res) => {
+  res.json({ status: 'OK', timestamp: new Date() })
+})
+
 app.get('/api/user-data', async (req, res) => {
   try {
-    const userData = await UserData.findOne()
-    res.json(userData || {})
+    const data = await UserData.findOne()
+    res.json(data || {})
   } catch (error) {
-    res.status(500).json({ message: 'Error fetching data', error: error.message })
+    res.status(500).json({ error: error.message })
   }
 })
 
 app.post('/api/admin/login', (req, res) => {
   const { username, password } = req.body
-  
   if (username === 'admin' && password === 'password123') {
     const token = Buffer.from(`${username}:${Date.now()}`).toString('base64')
     res.json({ success: true, token })
@@ -261,54 +151,31 @@ app.post('/api/admin/login', (req, res) => {
 })
 
 app.get('/api/admin/data', async (req, res) => {
-  const authHeader = req.headers.authorization
-  if (!authHeader) {
+  if (!req.headers.authorization) {
     return res.status(401).json({ message: 'Unauthorized' })
   }
-
   try {
-    const userData = await UserData.findOne()
-    res.json(userData || {})
+    const data = await UserData.findOne()
+    res.json(data || {})
   } catch (error) {
-    res.status(500).json({ message: 'Error fetching data', error: error.message })
+    res.status(500).json({ error: error.message })
   }
 })
 
 app.post('/api/admin/data', async (req, res) => {
-  const authHeader = req.headers.authorization
-  if (!authHeader) {
+  if (!req.headers.authorization) {
     return res.status(401).json({ message: 'Unauthorized' })
   }
-
   try {
     const updatedData = { ...req.body, lastModified: new Date() }
-    
-    const userData = await UserData.findOneAndUpdate(
-      {},
-      updatedData,
-      { upsert: true, new: true }
-    )
-    
-    res.json({ 
-      success: true, 
-      message: 'Data saved successfully',
-      timestamp: userData.lastModified
-    })
+    await UserData.findOneAndUpdate({}, updatedData, { upsert: true })
+    res.json({ success: true, message: 'Data saved' })
   } catch (error) {
-    res.status(500).json({ 
-      success: false, 
-      message: 'Error saving data', 
-      error: error.message 
-    })
+    res.status(500).json({ success: false, error: error.message })
   }
 })
 
-app.get('/health', (req, res) => {
-  res.json({ status: 'Backend is running', timestamp: new Date() })
+app.listen(PORT, async () => {
+  console.log(`Server running on port ${PORT}`)
+  await initializeData()
 })
-
-app.listen(PORT, () => {
-  console.log(`Server running on port ${PORT}`);
-});
-
-module.exports = app
