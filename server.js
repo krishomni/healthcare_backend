@@ -52,7 +52,6 @@ const userDataSchema = new mongoose.Schema({
     doctorsCount: String
   },
   services: [mongoose.Schema.Types.Mixed],
-  team: [mongoose.Schema.Types.Mixed],
   blogPosts: [mongoose.Schema.Types.Mixed],
   gallery: {
     facilityImages: [mongoose.Schema.Types.Mixed],
@@ -96,7 +95,6 @@ const initializeData = async () => {
           successRate: "98",
           doctorsCount: "8"
         },
-        services: [],
         gallery: { facilityImages: [], beforeAfterCases: [] },
         ui: {
           homepage: {
